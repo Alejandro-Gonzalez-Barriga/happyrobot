@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HappyRobot — Carrier Sales Command Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Barlow+Condensed:wght@300;400;500;600;700;800&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c0f;
+    --surface: #111318;
+    --surface2: #181b22;
+    --border: #23272f;
+    --border2: #2e3440;
+    --text: #e8eaf0;
+    --text2: #8892a4;
+    --text3: #4a5568;
+    --accent: #00d4aa;
+    --accent2: #0095ff;
+    --warn: #ff9500;
+    --danger: #ff4757;
+    --positive: #2ed573;
+    --mono: 'Space Mono', monospace;
+    --sans: 'Barlow', sans-serif;
+    --cond: 'Barlow Condensed', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* noise texture overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── HEADER ── */
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(10, 12, 15, 0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 32px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-family: var(--cond);
+    font-weight: 700;
+    font-size: 18px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .logo-icon {
+    width: 32px;
+    height: 32px;
+    background: var(--accent);
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    color: #000;
+    font-weight: 900;
+    flex-shrink: 0;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .live-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .live-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+
+  .header-time {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text3);
+  }
+
+  /* ── MAIN LAYOUT ── */
+  main {
+    position: relative;
+    z-index: 1;
+    padding: 28px 32px 48px;
+    max-width: 1440px;
+    margin: 0 auto;
+  }
+
+  .page-title {
+    font-family: var(--cond);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .page-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ── KPI ROW ── */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .kpi-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 20px 20px 16px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+
+  .kpi-card:hover { border-color: var(--border2); }
+
+  .kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--kpi-color, var(--accent));
+  }
+
+  .kpi-label {
+    font-family: var(--cond);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 10px;
+  }
+
+  .kpi-value {
+    font-family: var(--cond);
+    font-size: 36px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--text);
+    letter-spacing: -0.01em;
+  }
+
+  .kpi-sub {
+    font-size: 12px;
+    color: var(--text2);
+    margin-top: 6px;
+    font-family: var(--mono);
+  }
+
+  .kpi-delta {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 2px;
+    margin-top: 6px;
+  }
+
+  .kpi-delta.up { background: rgba(46,213,115,0.12); color: var(--positive); }
+  .kpi-delta.down { background: rgba(255,71,87,0.12); color: var(--danger); }
+  .kpi-delta.neutral { background: rgba(0,149,255,0.12); color: var(--accent2); }
+
+  /* ── CHARTS ROW ── */
+  .charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .card-header {
+    padding: 16px 20px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .card-title {
+    font-family: var(--cond);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text2);
+  }
+
+  .card-body { padding: 20px; }
+
+  /* ── OUTCOME BAR CHART ── */
+  .outcome-chart { display: flex; flex-direction: column; gap: 12px; }
+
+  .outcome-row {
+    display: grid;
+    grid-template-columns: 120px 1fr 60px;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .outcome-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text2);
+    text-align: right;
+  }
+
+  .outcome-bar-track {
+    height: 8px;
+    background: var(--surface2);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .outcome-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .outcome-count {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text);
+    text-align: right;
+  }
+
+  /* ── DONUT CHART ── */
+  .donut-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .donut-svg { overflow: visible; }
+
+  .donut-center-text {
+    font-family: var(--cond);
+    fill: var(--text);
+  }
+
+  .sentiment-legend {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+
+  .legend-dot {
+    width: 8px; height: 8px;
+    border-radius: 2px;
+    margin-right: 8px;
+    flex-shrink: 0;
+  }
+
+  .legend-label { color: var(--text2); display: flex; align-items: center; }
+  .legend-val { color: var(--text); }
+
+  /* ── TIMELINE / CALL LOG ── */
+  .full-row {
+    margin-bottom: 24px;
+  }
+
+  /* ── RATE CHART ── */
+  .rate-bars { display: flex; flex-direction: column; gap: 8px; }
+
+  .rate-row {
+    display: grid;
+    grid-template-columns: 90px 1fr auto;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .rate-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .rate-bar-track {
+    height: 20px;
+    background: var(--surface2);
+    border-radius: 2px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .rate-bar-board {
+    position: absolute;
+    height: 100%;
+    background: var(--border2);
+    border-radius: 2px;
+  }
+
+  .rate-bar-agreed {
+    position: absolute;
+    height: 100%;
+    background: var(--accent);
+    opacity: 0.8;
+    border-radius: 2px;
+    transition: width 1s ease;
+  }
+
+  .rate-vals {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text2);
+    white-space: nowrap;
+  }
+
+  /* ── CALL LOG TABLE ── */
+  .table-wrap { overflow-x: auto; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  thead tr {
+    border-bottom: 1px solid var(--border);
+  }
+
+  th {
+    font-family: var(--cond);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text3);
+    padding: 10px 12px;
+    text-align: left;
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 12px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text2);
+    font-family: var(--mono);
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 2px;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .badge-booked    { background: rgba(46,213,115,0.15);  color: var(--positive); }
+  .badge-no_deal   { background: rgba(255,71,87,0.15);   color: var(--danger); }
+  .badge-declined  { background: rgba(255,149,0,0.15);   color: var(--warn); }
+  .badge-rejected  { background: rgba(255,71,87,0.1);    color: #ff6b7a; }
+  .badge-pos       { background: rgba(46,213,115,0.1);   color: var(--positive); }
+  .badge-neg       { background: rgba(255,71,87,0.1);    color: var(--danger); }
+  .badge-neu       { background: rgba(0,149,255,0.1);    color: var(--accent2); }
+
+  /* ── BOTTOM GRID ── */
+  .bottom-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  /* ── LOADING STATE ── */
+  .loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 120px;
+    color: var(--text3);
+    font-family: var(--mono);
+    font-size: 12px;
+    gap: 8px;
+  }
+
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid var(--border2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── API KEY INPUT ── */
+  .api-input-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .api-input {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 3px;
+    padding: 5px 10px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text);
+    width: 200px;
+    outline: none;
+  }
+
+  .api-input:focus { border-color: var(--accent); }
+
+  .btn {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    padding: 6px 14px;
+    border-radius: 3px;
+    font-family: var(--cond);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+
+  .btn:hover { opacity: 0.85; }
+
+  .api-url-input {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 3px;
+    padding: 5px 10px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text);
+    width: 260px;
+    outline: none;
+  }
+
+  .api-url-input:focus { border-color: var(--accent2); }
+
+  /* ── SPARKLINE ── */
+  .mini-chart { margin-top: 8px; }
+
+  .error-msg {
+    color: var(--danger);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 8px 12px;
+    background: rgba(255,71,87,0.08);
+    border: 1px solid rgba(255,71,87,0.2);
+    border-radius: 3px;
+    margin: 12px 0;
+  }
+
+  /* Tooltip */
+  [data-tip] { position: relative; cursor: default; }
+  [data-tip]:hover::after {
+    content: attr(data-tip);
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1e232c;
+    border: 1px solid var(--border2);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 4px 8px;
+    border-radius: 3px;
+    white-space: nowrap;
+    z-index: 999;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">HR</div>
+    <span>HappyRobot</span>
+    <span style="color:var(--text3); font-weight:300;">/ Carrier Sales</span>
+  </div>
+  <div class="header-right">
+    <div class="api-input-wrap">
+      <input class="api-url-input" id="apiUrl" type="text" placeholder="API URL (e.g. http://localhost:8000)" value="http://localhost:8000">
+      <input class="api-input" id="apiKey" type="password" placeholder="API Key" value="hr-secret-key-2026">
+      <button class="btn" onclick="loadData()">Load</button>
+    </div>
+    <div class="live-badge">
+      <div class="live-dot"></div>
+      Live
+    </div>
+    <div class="header-time" id="clock">--:--:--</div>
+  </div>
+</header>
+
+<main>
+  <div class="page-title">Command Center — Inbound Carrier Load Sales</div>
+
+  <div id="error-banner" style="display:none"></div>
+
+  <!-- KPI ROW -->
+  <div class="kpi-grid" id="kpiGrid">
+    <div class="kpi-card" style="--kpi-color: var(--accent)">
+      <div class="kpi-label">Total Calls</div>
+      <div class="kpi-value" id="kpi-total">—</div>
+      <div class="kpi-sub">all inbound</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color: var(--positive)">
+      <div class="kpi-label">Booking Rate</div>
+      <div class="kpi-value" id="kpi-rate">—</div>
+      <div class="kpi-sub" id="kpi-rate-sub">—</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color: var(--accent2)">
+      <div class="kpi-label">Revenue Booked</div>
+      <div class="kpi-value" id="kpi-rev">—</div>
+      <div class="kpi-sub" id="kpi-rpm">— /mi avg</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color: var(--warn)">
+      <div class="kpi-label">Avg Call Duration</div>
+      <div class="kpi-value" id="kpi-dur">—</div>
+      <div class="kpi-sub">seconds</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color: #a78bfa">
+      <div class="kpi-label">Avg Negotiations</div>
+      <div class="kpi-value" id="kpi-neg">—</div>
+      <div class="kpi-sub">rounds/call</div>
+    </div>
+  </div>
+
+  <!-- CHARTS ROW -->
+  <div class="charts-grid">
+    <!-- Outcome Bar Chart -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Call Outcomes</span>
+        <span style="font-family:var(--mono);font-size:10px;color:var(--text3)" id="outcome-total-label">— calls</span>
+      </div>
+      <div class="card-body">
+        <div id="outcomeChart" class="loading"><div class="spinner"></div> Loading…</div>
+      </div>
+    </div>
+
+    <!-- Sentiment Donut -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Carrier Sentiment</span>
+      </div>
+      <div class="card-body">
+        <div id="sentimentChart" class="loading"><div class="spinner"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rate Comparison -->
+  <div class="full-row card">
+    <div class="card-header">
+      <span class="card-title">Rate Negotiation — Board Rate vs Agreed Rate (Booked Loads)</span>
+      <span style="font-family:var(--mono);font-size:10px;color:var(--text3)">
+        <span style="background:var(--border2);padding:2px 6px;border-radius:2px;margin-right:6px">Board</span>
+        <span style="background:var(--accent);opacity:0.8;padding:2px 6px;border-radius:2px;color:#000">Agreed</span>
+      </span>
+    </div>
+    <div class="card-body">
+      <div id="rateChart" class="loading"><div class="spinner"></div></div>
+    </div>
+  </div>
+
+  <!-- FMCSA + Equipment row -->
+  <div class="bottom-grid">
+    <div class="card">
+      <div class="card-header"><span class="card-title">FMCSA Verification</span></div>
+      <div class="card-body" id="fmcsaChart" style="display:flex;align-items:center;gap:24px;justify-content:center">
+        <div class="loading"><div class="spinner"></div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Equipment Type Breakdown</span></div>
+      <div class="card-body">
+        <div id="equipChart" class="loading"><div class="spinner"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CALL LOG TABLE -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Call Log</span>
+      <span style="font-family:var(--mono);font-size:10px;color:var(--text3)" id="table-count">— records</span>
+    </div>
+    <div class="table-wrap">
+      <div id="callTable" class="loading" style="padding:32px"><div class="spinner"></div> Loading…</div>
+    </div>
+  </div>
+</main>
+
+<script>
+// ── Clock ─────────────────────────────────────────────────────────────────────
+function updateClock() {
+  document.getElementById('clock').textContent = new Date().toLocaleTimeString('en-US', {hour12: false});
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const fmt$ = v => v != null ? '$' + Number(v).toLocaleString('en-US', {minimumFractionDigits:0,maximumFractionDigits:0}) : '—';
+const fmtSec = s => s != null ? `${s}s` : '—';
+
+function showError(msg) {
+  const el = document.getElementById('error-banner');
+  el.style.display = 'block';
+  el.className = 'error-msg';
+  el.textContent = '⚠ ' + msg;
+}
+
+// ── Data Fetch ────────────────────────────────────────────────────────────────
+async function loadData() {
+  const baseUrl = document.getElementById('apiUrl').value.replace(/\/$/, '');
+  const apiKey  = document.getElementById('apiKey').value;
+  document.getElementById('error-banner').style.display = 'none';
+
+  try {
+    const resp = await fetch(`${baseUrl}/metrics`, {
+      headers: { 'X-API-Key': apiKey }
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${await resp.text()}`);
+    const data = await resp.json();
+    renderAll(data);
+  } catch(e) {
+    showError(e.message + ' — Is the API running? Check the URL and API key.');
+    // Render with built-in demo data
+    renderAll(DEMO_DATA);
+  }
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function renderAll(data) {
+  renderKPIs(data);
+  renderOutcomes(data);
+  renderSentiment(data);
+  renderRates(data);
+  renderFMCSA(data);
+  renderEquipment(data);
+  renderTable(data);
+}
+
+function renderKPIs(d) {
+  document.getElementById('kpi-total').textContent = d.total_calls ?? '—';
+  document.getElementById('kpi-rate').textContent = d.booking_rate_pct != null ? d.booking_rate_pct + '%' : '—';
+  document.getElementById('kpi-rate-sub').textContent = `${d.booked ?? 0} of ${d.total_calls ?? 0} booked`;
+  document.getElementById('kpi-rev').textContent = d.total_revenue_booked != null ? fmt$(d.total_revenue_booked) : '—';
+  document.getElementById('kpi-rpm').textContent = d.avg_rate_per_mile ? `$${d.avg_rate_per_mile.toFixed(2)}/mi avg` : '—';
+  document.getElementById('kpi-dur').textContent = d.avg_call_duration_sec ?? '—';
+  document.getElementById('kpi-neg').textContent = d.avg_negotiation_rounds != null ? d.avg_negotiation_rounds.toFixed(1) : '—';
+}
+
+function renderOutcomes(d) {
+  const breakdown = d.outcome_breakdown || {};
+  document.getElementById('outcome-total-label').textContent = `${d.total_calls} calls`;
+  const total = d.total_calls || 1;
+
+  const COLORS = {
+    BOOKED: 'var(--positive)',
+    NO_DEAL: 'var(--danger)',
+    CARRIER_DECLINED: 'var(--warn)',
+    FMCSA_REJECTED: '#ff6b7a',
+    TRANSFERRED: 'var(--accent2)',
+    ABANDONED: 'var(--text3)',
+  };
+
+  const LABELS = {
+    BOOKED: 'Booked',
+    NO_DEAL: 'No Deal',
+    CARRIER_DECLINED: 'Carrier Declined',
+    FMCSA_REJECTED: 'FMCSA Rejected',
+    TRANSFERRED: 'Transferred',
+    ABANDONED: 'Abandoned',
+  };
+
+  const entries = Object.entries(breakdown).sort((a,b) => b[1]-a[1]);
+  const html = `<div class="outcome-chart">` + entries.map(([key, count]) => {
+    const pct = Math.round(count/total*100);
+    const color = COLORS[key] || 'var(--accent)';
+    const label = LABELS[key] || key;
+    return `<div class="outcome-row">
+      <div class="outcome-label">${label}</div>
+      <div class="outcome-bar-track">
+        <div class="outcome-bar-fill" style="width:${pct}%;background:${color}"></div>
+      </div>
+      <div class="outcome-count">${count} <span style="color:var(--text3)">(${pct}%)</span></div>
+    </div>`;
+  }).join('') + `</div>`;
+  document.getElementById('outcomeChart').innerHTML = html;
+}
+
+function renderSentiment(d) {
+  const s = d.sentiment_breakdown || {POSITIVE:0, NEUTRAL:0, NEGATIVE:0};
+  const total = (s.POSITIVE||0) + (s.NEUTRAL||0) + (s.NEGATIVE||0) || 1;
+
+  const COLORS = ['var(--positive)', 'var(--accent2)', 'var(--danger)'];
+  const LABELS = ['Positive', 'Neutral', 'Negative'];
+  const vals = [s.POSITIVE||0, s.NEUTRAL||0, s.NEGATIVE||0];
+
+  // SVG Donut
+  const r = 60, cx = 80, cy = 80, stroke = 22;
+  let offset = 0;
+  const circumference = 2 * Math.PI * r;
+  const slices = vals.map((v, i) => {
+    const pct = v / total;
+    const dashArray = `${pct * circumference} ${circumference}`;
+    const rotate = offset * 360;
+    offset += pct;
+    return `<circle cx="${cx}" cy="${cy}" r="${r}"
+      fill="none" stroke="${COLORS[i]}" stroke-width="${stroke}"
+      stroke-dasharray="${dashArray}"
+      stroke-dashoffset="0"
+      transform="rotate(${rotate - 90} ${cx} ${cy})"
+      opacity="0.85"/>`;
+  }).join('');
+
+  const topIdx = vals.indexOf(Math.max(...vals));
+  const topPct = Math.round(vals[topIdx]/total*100);
+
+  const legend = LABELS.map((l,i) => `
+    <div class="legend-item">
+      <span class="legend-label"><span class="legend-dot" style="background:${COLORS[i]}"></span>${l}</span>
+      <span class="legend-val">${vals[i]} <span style="color:var(--text3)">(${Math.round(vals[i]/total*100)}%)</span></span>
+    </div>`).join('');
+
+  document.getElementById('sentimentChart').innerHTML = `
+    <div class="donut-wrap">
+      <svg width="160" height="160" class="donut-svg" viewBox="0 0 160 160">
+        <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--surface2)" stroke-width="${stroke}"/>
+        ${slices}
+        <text x="${cx}" y="${cy-8}" text-anchor="middle" font-family="'Barlow Condensed'" font-size="28" font-weight="700" fill="var(--text)">${topPct}%</text>
+        <text x="${cx}" y="${cy+12}" text-anchor="middle" font-family="'Barlow Condensed'" font-size="12" fill="var(--text3)" letter-spacing="1">${LABELS[topIdx].toUpperCase()}</text>
+      </svg>
+      <div class="sentiment-legend">${legend}</div>
+    </div>`;
+}
+
+function renderRates(d) {
+  const calls = (d.calls || []).filter(c => c.outcome === 'BOOKED' && c.initial_rate && c.final_agreed_rate);
+  if (!calls.length) { document.getElementById('rateChart').innerHTML = '<div style="color:var(--text3);font-family:var(--mono);font-size:12px;padding:8px">No booked calls yet</div>'; return; }
+
+  const maxRate = Math.max(...calls.map(c => Math.max(c.initial_rate, c.final_agreed_rate)));
+
+  const rows = calls.map(c => {
+    const boardPct = Math.round(c.initial_rate / maxRate * 100);
+    const agreedPct = Math.round(c.final_agreed_rate / maxRate * 100);
+    const delta = c.final_agreed_rate - c.initial_rate;
+    const deltaStr = delta >= 0 ? `+${fmt$(delta)}` : fmt$(delta);
+    const deltaColor = delta >= 0 ? 'var(--positive)' : 'var(--danger)';
+    const label = (c.load_id || '').split('-')[1] || c.load_id || '?';
+    return `<div class="rate-row">
+      <div class="rate-label" data-tip="${c.origin} → ${c.destination}">${c.load_id}</div>
+      <div class="rate-bar-track">
+        <div class="rate-bar-board" style="width:${boardPct}%"></div>
+        <div class="rate-bar-agreed" style="width:${agreedPct}%"></div>
+      </div>
+      <div class="rate-vals">${fmt$(c.final_agreed_rate)} <span style="color:${deltaColor}">${deltaStr}</span></div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('rateChart').innerHTML = `<div class="rate-bars">${rows}</div>`;
+}
+
+function renderFMCSA(d) {
+  const calls = d.calls || [];
+  const verified = calls.filter(c => c.fmcsa_verified).length;
+  const rejected = calls.filter(c => c.fmcsa_verified === false).length;
+  const total = calls.length || 1;
+  const vPct = Math.round(verified/total*100);
+
+  document.getElementById('fmcsaChart').innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;gap:16px;width:100%">
+      <svg width="120" height="120" viewBox="0 0 120 120">
+        <circle cx="60" cy="60" r="50" fill="none" stroke="var(--surface2)" stroke-width="12"/>
+        <circle cx="60" cy="60" r="50" fill="none" stroke="var(--accent)" stroke-width="12"
+          stroke-dasharray="${vPct * 3.14159} 314.159"
+          stroke-dashoffset="0"
+          transform="rotate(-90 60 60)" stroke-linecap="round"/>
+        <text x="60" y="55" text-anchor="middle" font-family="'Barlow Condensed'" font-size="26" font-weight="700" fill="var(--text)">${vPct}%</text>
+        <text x="60" y="72" text-anchor="middle" font-family="'Barlow Condensed'" font-size="10" fill="var(--text3)" letter-spacing="1">VERIFIED</text>
+      </svg>
+      <div style="display:flex;gap:24px;font-family:var(--mono);font-size:11px">
+        <div><span style="color:var(--accent)">✓</span> ${verified} Verified</div>
+        <div><span style="color:var(--danger)">✗</span> ${rejected} Rejected</div>
+      </div>
+    </div>`;
+}
+
+function renderEquipment(d) {
+  const breakdown = d.equipment_breakdown || {};
+  const total = Object.values(breakdown).reduce((a,b) => a+b, 0) || 1;
+
+  const COLORS = ['var(--accent)', 'var(--accent2)', 'var(--warn)', '#a78bfa', 'var(--positive)'];
+  const entries = Object.entries(breakdown).sort((a,b) => b[1]-a[1]);
+
+  const html = entries.map(([type, count], i) => {
+    const pct = Math.round(count/total*100);
+    const color = COLORS[i % COLORS.length];
+    return `<div class="outcome-row">
+      <div class="outcome-label">${type}</div>
+      <div class="outcome-bar-track">
+        <div class="outcome-bar-fill" style="width:${pct}%;background:${color}"></div>
+      </div>
+      <div class="outcome-count">${count}</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('equipChart').innerHTML = `<div class="outcome-chart">${html}</div>`;
+}
+
+function renderTable(d) {
+  const calls = d.calls || [];
+  document.getElementById('table-count').textContent = `${calls.length} records`;
+
+  if (!calls.length) {
+    document.getElementById('callTable').innerHTML = '<div style="padding:32px;color:var(--text3);font-family:var(--mono);font-size:12px">No calls logged yet</div>';
+    return;
+  }
+
+  const outcomeBadge = o => {
+    const map = {
+      BOOKED: 'badge-booked', NO_DEAL: 'badge-no_deal',
+      CARRIER_DECLINED: 'badge-declined', FMCSA_REJECTED: 'badge-rejected'
+    };
+    return `<span class="badge ${map[o]||'badge-neu'}">${o?.replace('_',' ')}</span>`;
+  };
+
+  const sentBadge = s => {
+    const map = { POSITIVE:'badge-pos', NEGATIVE:'badge-neg', NEUTRAL:'badge-neu' };
+    return `<span class="badge ${map[s]||'badge-neu'}">${s}</span>`;
+  };
+
+  const fmtTs = ts => {
+    if (!ts) return '—';
+    const d = new Date(ts);
+    return d.toLocaleString('en-US', {month:'short',day:'numeric',hour:'numeric',minute:'2-digit',hour12:false});
+  };
+
+  const rows = [...calls].reverse().map(c => `
+    <tr>
+      <td style="color:var(--accent);font-size:10px">${c.call_id || '—'}</td>
+      <td>${fmtTs(c.timestamp)}</td>
+      <td>${c.mc_number || '—'}</td>
+      <td style="color:var(--text);max-width:140px;overflow:hidden;text-overflow:ellipsis">${c.carrier_name || '—'}</td>
+      <td>${c.load_id || '—'}</td>
+      <td>${c.origin ? `${c.origin}` : '—'}</td>
+      <td>${c.destination ? `${c.destination}` : '—'}</td>
+      <td>${fmt$(c.initial_rate)}</td>
+      <td style="color:${c.final_agreed_rate ? 'var(--text)' : 'var(--text3)'}">
+        ${c.final_agreed_rate ? fmt$(c.final_agreed_rate) : '—'}
+      </td>
+      <td>${c.num_negotiations ?? 0}</td>
+      <td>${outcomeBadge(c.outcome)}</td>
+      <td>${sentBadge(c.sentiment)}</td>
+      <td>${c.duration_seconds ? c.duration_seconds + 's' : '—'}</td>
+    </tr>`).join('');
+
+  document.getElementById('callTable').innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Call ID</th><th>Time</th><th>MC #</th><th>Carrier</th>
+          <th>Load</th><th>Origin</th><th>Destination</th>
+          <th>Board Rate</th><th>Agreed</th><th>Neg.</th>
+          <th>Outcome</th><th>Sentiment</th><th>Duration</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+// ── Demo Data (fallback) ──────────────────────────────────────────────────────
+const DEMO_DATA = {
+  "total_calls": 8,"booked": 5,"booking_rate_pct": 62.5,
+  "no_deal": 1,"carrier_declined": 1,"fmcsa_rejected": 1,
+  "total_revenue_booked": 13050.00,"avg_agreed_rate": 2610.00,
+  "avg_rate_delta": 83.33,"avg_call_duration_sec": 141.4,
+  "avg_negotiation_rounds": 1.75,"avg_rate_per_mile": 3.2156,
+  "sentiment_breakdown": {"POSITIVE": 4,"NEUTRAL": 2,"NEGATIVE": 2},
+  "outcome_breakdown": {"BOOKED": 5,"NO_DEAL": 1,"CARRIER_DECLINED": 1,"FMCSA_REJECTED": 1},
+  "equipment_breakdown": {"Dry Van": 4,"Reefer": 2,"Flatbed": 1},
+  "calls": [
+    {"call_id":"CALL-0001","timestamp":"2026-06-01T09:14:22","mc_number":"MC123456","carrier_name":"Swift Transport LLC","load_id":"LD-1001","origin":"Chicago, IL","destination":"Dallas, TX","initial_rate":2850,"final_agreed_rate":2950,"counter_offers":[2650,2800,2950],"num_negotiations":3,"outcome":"BOOKED","sentiment":"POSITIVE","fmcsa_verified":true,"duration_seconds":187,"equipment_type":"Dry Van","miles":921},
+    {"call_id":"CALL-0002","timestamp":"2026-06-01T10:32:11","mc_number":"MC789012","carrier_name":"Lone Star Freight","load_id":"LD-1002","origin":"Los Angeles, CA","destination":"Phoenix, AZ","initial_rate":1400,"final_agreed_rate":null,"counter_offers":[1200,1100],"num_negotiations":2,"outcome":"CARRIER_DECLINED","sentiment":"NEGATIVE","fmcsa_verified":true,"duration_seconds":134,"equipment_type":"Reefer","miles":372},
+    {"call_id":"CALL-0003","timestamp":"2026-06-01T11:05:44","mc_number":"MC000BAD","carrier_name":"Unknown Carrier","load_id":null,"origin":null,"destination":null,"initial_rate":null,"final_agreed_rate":null,"counter_offers":[],"num_negotiations":0,"outcome":"FMCSA_REJECTED","sentiment":"NEUTRAL","fmcsa_verified":false,"duration_seconds":45,"equipment_type":null,"miles":null},
+    {"call_id":"CALL-0004","timestamp":"2026-06-02T08:22:09","mc_number":"MC345678","carrier_name":"Mountain Pass Logistics","load_id":"LD-1005","origin":"Seattle, WA","destination":"Denver, CO","initial_rate":3200,"final_agreed_rate":3200,"counter_offers":[],"num_negotiations":0,"outcome":"BOOKED","sentiment":"POSITIVE","fmcsa_verified":true,"duration_seconds":95,"equipment_type":"Dry Van","miles":1321},
+    {"call_id":"CALL-0005","timestamp":"2026-06-02T13:47:30","mc_number":"MC901234","carrier_name":"Coastal Carriers Inc","load_id":"LD-1003","origin":"Atlanta, GA","destination":"Miami, FL","initial_rate":1950,"final_agreed_rate":2050,"counter_offers":[1800,2050],"num_negotiations":2,"outcome":"BOOKED","sentiment":"POSITIVE","fmcsa_verified":true,"duration_seconds":162,"equipment_type":"Flatbed","miles":662},
+    {"call_id":"CALL-0006","timestamp":"2026-06-03T09:10:05","mc_number":"MC567890","carrier_name":"Heartland Haulers","load_id":"LD-1004","origin":"Houston, TX","destination":"Memphis, TN","initial_rate":1750,"final_agreed_rate":null,"counter_offers":[1500,1400,1350],"num_negotiations":3,"outcome":"NO_DEAL","sentiment":"NEGATIVE","fmcsa_verified":true,"duration_seconds":210,"equipment_type":"Dry Van","miles":565},
+    {"call_id":"CALL-0007","timestamp":"2026-06-03T14:55:18","mc_number":"MC112233","carrier_name":"Midwest Express","load_id":"LD-1006","origin":"Nashville, TN","destination":"Columbus, OH","initial_rate":1100,"final_agreed_rate":1150,"counter_offers":[1050,1150],"num_negotiations":2,"outcome":"BOOKED","sentiment":"NEUTRAL","fmcsa_verified":true,"duration_seconds":143,"equipment_type":"Dry Van","miles":330},
+    {"call_id":"CALL-0008","timestamp":"2026-06-04T07:30:00","mc_number":"MC445566","carrier_name":"Arctic Reefer Co","load_id":"LD-1007","origin":"Kansas City, MO","destination":"Minneapolis, MN","initial_rate":1650,"final_agreed_rate":1700,"counter_offers":[1550,1700],"num_negotiations":2,"outcome":"BOOKED","sentiment":"POSITIVE","fmcsa_verified":true,"duration_seconds":155,"equipment_type":"Reefer","miles":440}
+  ]
+};
+
+// Auto-load with demo data on start
+renderAll(DEMO_DATA);
+</script>
+</body>
+</html>

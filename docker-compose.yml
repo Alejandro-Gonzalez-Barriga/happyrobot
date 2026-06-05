@@ -1,0 +1,30 @@
+version: "3.9"
+
+services:
+  api:
+    build: .
+    container_name: happyrobot-api
+    ports:
+      - "8000:8000"
+    environment:
+      - API_KEY=${API_KEY:-hr-secret-key-2026}
+      - FMCSA_API_KEY=${FMCSA_API_KEY:-}
+    volumes:
+      - ./data:/app/data   # persist call logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  dashboard:
+    image: nginx:alpine
+    container_name: happyrobot-dashboard
+    ports:
+      - "3000:80"
+    volumes:
+      - ./dashboard:/usr/share/nginx/html:ro
+    restart: unless-stopped
+    depends_on:
+      - api
