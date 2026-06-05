@@ -706,7 +706,7 @@ async function loadData() {
   document.getElementById('error-banner').style.display = 'none';
 
   try {
-    const resp = await fetch(`${baseUrl}/metrics`, {
+    const resp = await fetch(`${baseUrl}/api/v1/metrics`, {
       headers: { 'X-API-Key': apiKey }
     });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${await resp.text()}`);
